@@ -1,0 +1,14 @@
+drop table if exists countries;
+drop table if exists customers;
+drop table if exists discounts;
+drop table if exists goods;
+drop table if exists recepeit;
+drop table if exists sellers;
+drop table if exists sells;
+create table countries(    id           int auto_increment        primary key,   country_name text null);
+create table customers(    id            int auto_increment        primary key,    customer_name text null);
+create table discounts(    id              int auto_increment        primary key, goods_id        int       null,    value           double    null,    expiration_date timestamp null);
+create table goods(    id          int auto_increment        primary key,    country_id  int           null,    model       text          null,    goods_name  text          null,    cost        double        null,    stock_count int default 0 null);
+create table recepeit(    id           int auto_increment        primary key,    sell_date    timestamp            null,    payment_date timestamp            null,    customer_id  int                  null,    sellers_id   int                  null,    refused      tinyint(1) default 0 null);
+create table sellers(    id           int auto_increment        primary key,    sellers_name text null);
+create table sells(    id          int auto_increment        primary key,    goods_id    int null,    recepeit_id int null);

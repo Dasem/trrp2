@@ -7,6 +7,7 @@ mysql = pymysql.connect(constants.mysql_ip, constants.mysql_user, constants.mysq
 
 mysql_cur = mysql.cursor()
 
+
 def to_excel():
     mysql_cur.execute("SHOW tables")
     tables = mysql_cur.fetchall()
@@ -47,8 +48,8 @@ def to_excel():
 
     workbook.close()
 
+
 if __name__ == '__main__':
     to_excel()
 
     mysql.close()
-    sqlite.close()

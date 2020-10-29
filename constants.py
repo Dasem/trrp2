@@ -1,9 +1,22 @@
-mysql_ip = '127.0.0.1'
-mysql_db = 'sellers'
-mysql_user = 'root'
-mysql_pwd = 'root'
+import configparser
 
-sqlite_db = 'sellers.db'
+config = configparser.ConfigParser()
+config.read('default.properties')
+
+mysql_ip = config.get('DefaultSection', 'mysql_ip')
+mysql_db = config.get('DefaultSection', 'mysql_db')
+mysql_user = config.get('DefaultSection', 'mysql_user')
+mysql_pwd = config.get('DefaultSection', 'mysql_pwd')
+
+mode = config.get('DefaultSection', 'mode')  # SOCKET, KAFKA
+
+key = bytes(config.get('DefaultSection', 'key'), 'utf-8')
+
+kafka_ip_port = config.get('DefaultSection', 'kafka_ip_port')
+socket_ip = config.get('DefaultSection', 'socket_ip')
+socket_port = int(config.get('DefaultSection', 'socket_port'))
+
+sqlite_db = config.get('DefaultSection', 'sqlite_db')
 
 model_col = 0
 name_goods_col = 1
@@ -17,3 +30,9 @@ discount_value_col = 8
 buy_rejected_col = 9
 payment_date_col = 10
 expiration_date_col = 11
+
+
+
+
+
+

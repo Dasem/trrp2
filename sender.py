@@ -1,14 +1,32 @@
-import pymysql
+import socket
 import sqlite3
 import constants
-import xlsxwriter
-import datetime
+from des import DesKey
+from kafka import KafkaProducer
 
-mysql = pymysql.connect(constants.mysql_ip, constants.mysql_user, constants.mysql_pwd, constants.mysql_db)
+key = DesKey(constants.key)
+
 sqlite = sqlite3.connect(constants.sqlite_db)
 
-mysql_cur = mysql.cursor()
 sqlite_cur = sqlite.cursor()
+
+kafka_sender = KafkaProducer(bootstrap_servers=constants.kafka_ip_port, api_version=(1, 0, 0))
+socket_sender = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+if constants.mode == 'SOCKET':
+    socket_sender.connect((constants.socket_ip, constants.socket_port))
+
+
+def send_data(data):
+    print(f'sended data:"{data}"')
+    if constants.mode == 'KAFKA':
+        encrypted_data = key.encrypt(bytes(data, 'utf=8'), padding=True)
+        print(f'encrypted data:"{encrypted_data}"')
+        kafka_sender.send('TutorialTopic', encrypted_data)
+    elif constants.mode == 'SOCKET':
+        encrypted_data = key.encrypt(bytes(data + '\n', 'utf=8'), padding=True)
+        print(f'encrypted data:"{encrypted_data}"')
+        socket_sender.sendall(encrypted_data)
 
 
 def extract_sellers(data):
@@ -18,8 +36,7 @@ def extract_sellers(data):
     sellers.discard(None)
 
     for name in sellers:
-        mysql_cur.execute(f"insert into sellers (sellers_name) values ('{name}')")
-    mysql.commit()
+        send_data(f"insert into sellers (sellers_name) values ('{name}')")
 
 
 def extract_customers(data):
@@ -29,8 +46,7 @@ def extract_customers(data):
     customers.discard(None)
 
     for name in customers:
-        mysql_cur.execute(f"insert into customers (customer_name) values ('{name}')")
-    mysql.commit()
+        send_data(f"insert into customers (customer_name) values ('{name}')")
 
 
 def extract_countries(data):
@@ -40,8 +56,8 @@ def extract_countries(data):
     countries.discard(None)
 
     for name in countries:
-        mysql_cur.execute(f"insert into countries (country_name) values ('{name}')")
-    mysql.commit()
+        send_data(f"insert into countries (country_name) values ('{name}')")
+
 
 def extract_recepeits(data):
     sqlite_cur.execute(
@@ -50,12 +66,12 @@ def extract_recepeits(data):
     for row in data:
         if row[0] is None:
             continue
-        mysql_cur.execute(
+        send_data(
             f"insert into recepeit (sell_date, payment_date, customer_id, sellers_id, refused) values ('{row[2]}', '{row[4]}', \
         (select id from customers where customer_name='{row[1]}'), \
         (select id from sellers where sellers_name='{row[0]}'),\
         {row[3]})")
-    mysql.commit()
+
 
 def extract_discounts(data):
     sqlite_cur.execute(
@@ -64,12 +80,12 @@ def extract_discounts(data):
     for row in data:
         if row[1] is None:
             continue
-        mysql_cur.execute(
+        send_data(
             f"insert into discounts (goods_id, value, expiration_date) values (\
         (select id from goods where goods_name='{row[0]}'), \
         {row[1]}, \
         '{row[2]}')")
-    mysql.commit()
+
 
 def extract_goods(data):
     sqlite_cur.execute(
@@ -78,28 +94,27 @@ def extract_goods(data):
     for row in data:
         if row[2] is None:
             continue
-        mysql_cur.execute(
+        send_data(
             f"insert into goods (country_id, model, goods_name, cost, stock_count) values (\
         (select id from countries where country_name='{row[0]}'), \
         '{row[1]}', \
         '{row[2]}',\
         {row[3]},\
         {row[4]})")
-    mysql.commit()
 
 
 def extract_sells(data):
     for row in data:
-        mysql_cur.execute(
+        send_data(
             f"insert into sells (goods_id, recepeit_id) values (\
             (select id from goods where goods_name='{row[constants.name_goods_col]}'), \
             (select id from recepeit where sell_date='{row[constants.sell_date_col]}' and payment_date='{row[constants.payment_date_col]}'))")
-    mysql.commit()
 
 
 def init_db():
     for line in open('tables3form.sql'):
-        mysql_cur.execute(line)
+        send_data(line)
+
 
 def extract_all(data):
     extract_sellers(data)
@@ -110,6 +125,7 @@ def extract_all(data):
     extract_discounts(data)
     extract_sells(data)
 
+
 if __name__ == '__main__':
     sqlite_cur.execute(
         'select model, name_goods, origin_country, cost, count_in_stock, seller_name, customer_name, sell_date, discount_value, buy_rejected, payment_date, expiration_date from sellers;')
@@ -119,5 +135,8 @@ if __name__ == '__main__':
 
     extract_all(data)
 
-    mysql.close()
+    if constants.mode == 'KAFKA':
+        send_data('exit')
+        kafka_sender.flush()
+
     sqlite.close()
